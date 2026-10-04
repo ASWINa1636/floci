@@ -216,14 +216,36 @@ def count_generated_actions(md_source: str) -> int | None:
 
 
 def count_shared_tagging_routes(repo_root: Path) -> int:
-    """Count the shared /tags/{resourceArn} REST operations."""
+    """Count bare /tags REST operations declared by SharedTagsController.
+
+    AbstractTagsController supplies the inherited /{arn} routes. The service
+    matrix's ``+ 3`` counts only the additional bare /tags operations declared
+    directly by SharedTagsController.
+    """
     source_path = (
         repo_root
         / "src/main/java/io/github/hectorvent/floci/core/common/SharedTagsController.java"
     )
     source = source_path.read_text(encoding="utf-8")
 
-    return len(re.findall(r"^\s*@(?:GET|POST|DELETE|PUT)\s*$", source, re.MULTILINE))
+    method_pattern = re.compile(
+        r"(?ms)"
+        r"(?P<annotations>(?:(?:\s*@(?:GET|POST|DELETE|PUT)\b[^\n]*(?:\n|$))"
+        r"|(?:\s*@Path\b[^\n]*(?:\n|$))"
+        r"|(?:\s*@\w+\b[^\n]*(?:\n|$)))*)"
+        r"\s*public\s+Response\s+\w+\s*\("
+    )
+
+    count = 0
+
+    for match in method_pattern.finditer(source):
+        annotations = match.group("annotations")
+
+        if re.search(r"@\s*(?:GET|POST|DELETE|PUT)\b", annotations):
+            if not re.search(r"@\s*Path\s*\(", annotations):
+                count += 1
+
+    return count
 
 def extract_action_counts(repo_root: Path) -> dict[str, int]:
     """Extract mechanically verifiable action counts.
