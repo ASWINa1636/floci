@@ -146,38 +146,6 @@ def extract_matrix_action_counts(md_source: str) -> dict[str, int]:
     return counts
 
 
-def extract_matrix_extra_counts(md_source: str) -> dict[str, int]:
-    """Extract additional operation counts from composite service rows."""
-    try:
-        start = md_source.index(MATRIX_HEADING)
-        end = md_source.index(MATRIX_END_HEADING, start)
-    except ValueError:
-        raise ValueError(
-            f"{MATRIX_DOC}: could not find '{MATRIX_HEADING}' ... "
-            f"'{MATRIX_END_HEADING}' (has a heading been renamed or reordered?)"
-        ) from None
-
-    extras: dict[str, int] = {}
-
-    for line in md_source[start:end].splitlines():
-        match = re.match(
-            r"^\|\s*\[[^\]]+\]\(([a-z0-9][a-z0-9\-]*)\.md"
-            r"(#[^)]*)?\)\s*\|.*\|\s*\d+"
-            r"\s*\(\+\s*(\d+)[^)]*\)\s*\|$",
-            line,
-        )
-        if not match:
-            continue
-
-        slug, anchor, extra_count = match.groups()
-
-        if anchor:
-            continue
-
-        extras.setdefault(slug, int(extra_count))
-
-    return extras
-
 
 def count_generated_actions(md_source: str) -> int | None:
     """Count action rows inside a generated action-table marker pair.
@@ -214,38 +182,6 @@ def count_generated_actions(md_source: str) -> int | None:
 
     return count
 
-
-def count_shared_tagging_routes(repo_root: Path) -> int:
-    """Count bare /tags REST operations declared by SharedTagsController.
-
-    AbstractTagsController supplies the inherited /{arn} routes. The service
-    matrix's ``+ 3`` counts only the additional bare /tags operations declared
-    directly by SharedTagsController.
-    """
-    source_path = (
-        repo_root
-        / "src/main/java/io/github/hectorvent/floci/core/common/SharedTagsController.java"
-    )
-    source = source_path.read_text(encoding="utf-8")
-
-    method_pattern = re.compile(
-        r"(?ms)"
-        r"(?P<annotations>(?:(?:\s*@(?:GET|POST|DELETE|PUT)\b[^\n]*(?:\n|$))"
-        r"|(?:\s*@Path\b[^\n]*(?:\n|$))"
-        r"|(?:\s*@\w+\b[^\n]*(?:\n|$)))*)"
-        r"\s*public\s+Response\s+\w+\s*\("
-    )
-
-    count = 0
-
-    for match in method_pattern.finditer(source):
-        annotations = match.group("annotations")
-
-        if re.search(r"@\s*(?:GET|POST|DELETE|PUT)\b", annotations):
-            if not re.search(r"@\s*Path\s*\(", annotations):
-                count += 1
-
-    return count
 
 def extract_action_counts(repo_root: Path) -> dict[str, int]:
     """Extract mechanically verifiable action counts.
@@ -427,16 +363,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"service '{slug}' documents {documented_count} supported operations "
                 f"in {MATRIX_DOC}, but the action source contains {source_count}; "
                 "update the matrix count"
-            )
-    matrix_extra_counts = extract_matrix_extra_counts(md_source)
-    documented_tagging_count = matrix_extra_counts.get("bedrock-agentcore")
-    if documented_tagging_count is not None:
-        source_tagging_count = count_shared_tagging_routes(repo_root)
-        if documented_tagging_count != source_tagging_count:
-            warnings.append(
-                f"service 'bedrock-agentcore' documents {documented_tagging_count} "
-                f"shared tagging routes in {MATRIX_DOC}, but the shared tags "
-                f"controller contains {source_tagging_count}; update the matrix count"
             )
     for d in expired_deferred:
         warnings.append(

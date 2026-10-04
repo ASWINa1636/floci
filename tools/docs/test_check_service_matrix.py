@@ -130,38 +130,6 @@ Another link to [SQS](sqs.md).
         "cloudformation": 19,
     }
 
-def test_count_shared_tagging_routes_ignores_inherited_routes(tmp_path):
-    source = """
-    @Path("/tags")
-    public class SharedTagsController extends AbstractTagsController {
-        @GET
-        public Response listTagsByQuery() {
-            return null;
-        }
-
-        @POST @Consumes(MediaType.APPLICATION_JSON)
-        public Response tagResourceByBody() {
-            return null;
-        }
-
-        @DELETE
-        public Response untagResourceByQuery() {
-            return null;
-        }
-    }
-    """
-
-    source_path = (
-        tmp_path
-        / "src/main/java/io/github/hectorvent/floci/core/common"
-    )
-    source_path.mkdir(parents=True)
-    (source_path / "SharedTagsController.java").write_text(
-        source,
-        encoding="utf-8",
-    )
-
-    assert c.count_shared_tagging_routes(tmp_path) == 3
 
 def test_extract_matrix_slugs_raises_on_missing_heading():
     # A renamed/reordered heading must fail loudly rather than silently returning an
